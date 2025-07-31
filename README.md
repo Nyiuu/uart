@@ -1,117 +1,67 @@
-# 单片机串口通讯程序
+# 串口通讯程序
 
-这是一个用于与单片机进行串口通讯的C++程序，可以读取包含电流和功率数据的特定格式数据帧，并支持串口屏通信。
+基于C++17的异步串口通讯程序，支持电流功率数据接收和串口屏双向通信。
 
-## 数据帧格式
+## 功能特性
 
-### 电流功率协议
-- **帧头**: 0xAA 0xAA (2字节)
-- **数据**: 16字节
-  - 前4字节: 电流I的浮点数值
-  - 接下来4字节: 功率W的浮点数值
-  - 剩余8字节: 全为0
-- **帧尾**: 0xFF 0xFF (2字节)
+- 🔄 **异步多线程架构**：电流功率接收、串口屏接收、串口屏发送三线程分离
+- ⚡ **零延迟响应**：使用条件变量实现真正的异步通知
+- 🎯 **事件回调系统**：支持串口屏按键事件的灵活处理
+- 📊 **实时数据显示**：电流、功率、最大功率实时监控
+- 🎮 **串口屏控制**：支持start按键、数字键盘、摄像头控制等
 
-### 串口屏协议
-- **帧头**: 0x65 (1字节)
-- **数据**: 页面(1字节) + 控件(1字节) + 事件(1字节)
-- **帧尾**: 0xFF 0xFF 0xFF (3字节)
+## 快速开始
 
-总帧长度: 电流功率协议20字节，串口屏协议6字节
-
-## 编译要求
-
-- C++17 编译器
-- CMake 3.10+
-- libserialport 库
-
-## 安装依赖
-
-### Ubuntu/Debian:
+### 编译
 ```bash
-sudo apt-get install libserialport-dev cmake build-essential
-```
-
-### CentOS/RHEL:
-```bash
-sudo yum install libserialport-devel cmake gcc-c++
-```
-
-## 编译
-
-运行编译脚本:
-```bash
-chmod +x build.sh
 ./build.sh
 ```
 
-或者手动编译:
+### 运行
 ```bash
-mkdir build
-cd build
-cmake ..
-make
+./build/uart_program
 ```
-
-## 使用方法
-
-### 主程序 (uart_reader)
-
-用于读取单片机发送的数据帧和串口屏通信:
-
-```bash
-cd build
-./uart_reader
-```
-
-程序会:
-1. 列出可用的串口
-2. 自动配置串口参数
-3. 开始监听数据帧
-4. 解析并显示电流和功率值
-5. 响应串口屏按键事件
-6. 发送数据到串口屏显示
 
 ## 串口配置
 
-- **数据接收串口**: `/dev/ttyUSB0` - 接收单片机数据
-- **串口屏串口**: `/dev/ttyUSB1` - 与串口屏通信
+- **电流功率串口**：`/dev/ttyUSB0` (9600波特率)
+- **串口屏串口**：`/dev/ttyUSB1` (9600波特率)
 
-## 串口权限设置
+## 支持的事件
 
-如果遇到权限问题，请将用户添加到dialout组:
+| 事件类型 | 功能 |
+|---------|------|
+| START_BUTTON | 启动按键 |
+| KEYBOARD_0-9 | 数字键盘 |
+| DELETE_BUTTON | 删除按键 |
+| CAMERA_EXPOSURE_* | 摄像头曝光控制 |
+| CAMERA_THRESHOLD_* | 相机阈值控制 |
 
-```bash
-sudo usermod -a -G dialout $USER
+## 项目结构
+
+```
+uart/
+├── inc/                    # 头文件
+│   ├── protocol.h         # 协议基类
+│   ├── uart_reader.h      # 串口读取器
+│   ├── current_power_protocol.h    # 电流功率协议
+│   └── serial_screen_protocol.h    # 串口屏协议
+├── src/                   # 源文件
+│   ├── main.cpp          # 主程序
+│   ├── uart_reader.cpp   # 串口读取器实现
+│   ├── current_power_protocol.cpp  # 电流功率协议实现
+│   └── serial_screen_protocol.cpp  # 串口屏协议实现
+├── build.sh              # 编译脚本
+├── CMakeLists.txt        # CMake配置
+└── README.md            # 项目说明
 ```
 
-然后重新登录或运行:
-```bash
-newgrp dialout
-```
+## 依赖
 
-## 程序特性
+- C++17
+- CMake 3.10+
+- libserialport
 
-- 自动检测帧头和帧尾
-- 验证数据完整性
-- 实时显示解析结果
-- 支持自定义波特率
-- 错误处理和超时机制
-- 十六进制原始数据显示
-- 多线程数据发送
-- 串口屏按键响应
+## 许可证
 
-## 串口屏显示数据
-
-- **t0**: 距离D (固定值: 100.0)
-- **t1**: 边长x (固定值: 50.0)
-- **t2**: 电流I (实时更新)
-- **t3**: 功率P (实时更新)
-- **t4**: 最大功率 (固定值: 500.0)
-
-## 注意事项
-
-- 确保串口连接正确
-- 波特率设置要与单片机一致
-- 数据格式必须严格按照指定格式
-- 程序会持续运行直到按Ctrl+C退出 
+MIT License 
