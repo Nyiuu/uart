@@ -4,6 +4,7 @@
 #include <iostream>
 #include <thread>
 #include <chrono>
+#include <atomic>
 
 void listAvailablePorts() {
     struct sp_port **ports;
@@ -20,40 +21,48 @@ void listAvailablePorts() {
     sp_free_port_list(ports);
 }
 
-// 融合线程函数（接收+发送）
-void fusedThread(UartReader& reader, std::shared_ptr<SerialScreenProtocol> screenProtocol) {
-    std::cout << "融合线程已启动（接收+发送）" << std::endl;
-    
-    // 启动串口屏发送
-    screenProtocol->start();
+// 电流功率接收线程函数
+void currentPowerReceiveThread(UartReader& reader, std::shared_ptr<SerialScreenProtocol> screenProtocol) {
+    std::cout << "电流功率接收线程已启动" << std::endl;
     
     while (true) {
-        // 接收数据
+        // 接收电流功率数据
         if (reader.readAndParseFrame()) {
             // 数据接收成功，继续处理
         }
         
-        // 发送数据到串口屏（非阻塞）
-        // 这里我们让串口屏协议自己处理发送
-        std::this_thread::sleep_for(std::chrono::milliseconds(10)); // 短暂休息
+        // 短暂休息，避免CPU占用过高
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+}
+
+// 串口屏读写线程函数（同时处理接收和发送）
+void serialScreenThread(std::shared_ptr<SerialScreenProtocol> screenProtocol) {
+    std::cout << "串口屏读写线程已启动" << std::endl;
+    
+    // 启动串口屏发送
+    screenProtocol->start();
+    
+    // 串口屏线程会一直运行，直到程序退出
+    while (true) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
 }
 
 int main() {
-    std::cout << "=== 串口通讯程序 ===" << std::endl;
+    std::cout << "=== 串口通讯程序（双线程架构）===" << std::endl;
     listAvailablePorts();
 
-    std::string receive_port_name = "/dev/ttyUSB0";
-    std::string send_port_name = "/dev/ttyUSB1";
-    int receive_baud_rate = 9600;
-    int send_baud_rate = 9600;
+    std::string current_power_port = "/dev/ttyUSB0";  // 电流功率数据串口
+    std::string serial_screen_port = "/dev/ttyUSB1";  // 串口屏串口
+    int baud_rate = 9600;
 
     std::cout << "串口配置:" << std::endl;
-    std::cout << "  - 接收串口: " << receive_port_name << " (波特率: " << receive_baud_rate << ")" << std::endl;
-    std::cout << "  - 发送串口: " << send_port_name << " (波特率: " << send_baud_rate << ")" << std::endl;
+    std::cout << "  - 电流功率串口: " << current_power_port << " (波特率: " << baud_rate << ")" << std::endl;
+    std::cout << "  - 串口屏串口: " << serial_screen_port << " (波特率: " << baud_rate << ")" << std::endl;
 
-    // 创建串口屏发送协议
-    auto screenProtocol = std::make_shared<SerialScreenProtocol>(send_port_name, send_baud_rate);
+    // 创建串口屏协议（支持读写）
+    auto screenProtocol = std::make_shared<SerialScreenProtocol>(serial_screen_port, baud_rate);
     
     // 创建电流功率协议
     auto currentPowerProtocol = std::make_unique<CurrentPowerProtocol>();
@@ -65,41 +74,35 @@ int main() {
         }
     );
 
-    // 创建串口读取器
-    UartReader dataReader(receive_port_name, receive_baud_rate);
-    
-    // 添加电流功率协议到读取器
-    dataReader.addProtocol(std::move(currentPowerProtocol));
-    
-    // 添加串口屏接收协议到读取器（用于接收按键事件）
-    // 注意：这里使用接收串口，因为串口屏的按键事件是从接收串口发送过来的
-    auto screenReceiveProtocol = std::make_unique<SerialScreenProtocol>(receive_port_name, receive_baud_rate);
-    
-    // 设置串口屏接收协议的回调，当收到start按键时通知发送协议
-    screenReceiveProtocol->setStartButtonCallback(
-        [screenProtocol]() {
-            screenProtocol->notifyStartButtonPressed();
-        }
-    );
-    
-    dataReader.addProtocol(std::move(screenReceiveProtocol));
+    // 创建电流功率串口读取器
+    UartReader currentPowerReader(current_power_port, baud_rate);
+    currentPowerReader.addProtocol(std::move(currentPowerProtocol));
 
-    // 打开接收串口
-    if (!dataReader.open()) {
-        std::cerr << "无法打开接收串口，程序退出" << std::endl;
+    // 打开电流功率串口
+    if (!currentPowerReader.open()) {
+        std::cerr << "无法打开电流功率串口，程序退出" << std::endl;
         return -1;
     }
     
-    // 打开发送串口
+    // 打开串口屏串口（读写模式）
     if (!screenProtocol->open()) {
-        std::cerr << "警告: 无法打开发送串口，将只进行数据接收" << std::endl;
+        std::cerr << "无法打开串口屏串口，程序退出" << std::endl;
+        return -1;
     } else {
-        std::cout << "发送串口已打开" << std::endl;
+        std::cout << "串口屏串口已打开（读写模式）" << std::endl;
     }
 
-    std::cout << "开始融合线程运行..." << std::endl;
-    std::thread fusedThreadObj(fusedThread, std::ref(dataReader), screenProtocol);
-    fusedThreadObj.join();
+    std::cout << "启动两个独立线程..." << std::endl;
+    
+    // 启动两个独立线程
+    std::thread currentPowerThread(currentPowerReceiveThread, std::ref(currentPowerReader), screenProtocol);
+    std::thread serialScreenThreadObj(serialScreenThread, screenProtocol);
+    
+    std::cout << "所有线程已启动，主线程等待..." << std::endl;
+    
+    // 主线程等待所有子线程
+    currentPowerThread.join();
+    serialScreenThreadObj.join();
 
     return 0;
 } 

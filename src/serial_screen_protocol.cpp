@@ -25,9 +25,9 @@ bool SerialScreenProtocol::open() {
         return false;
     }
 
-    result = sp_open(port, SP_MODE_WRITE);
+    result = sp_open(port, SP_MODE_READ_WRITE);
     if (result != SP_OK) {
-        std::cerr << "无法打开串口屏串口进行写入" << std::endl;
+        std::cerr << "无法打开串口屏串口进行读写" << std::endl;
         return false;
     }
 
@@ -67,7 +67,7 @@ bool SerialScreenProtocol::open() {
     }
 
     std::cout << "成功打开串口屏串口: " << port_name << " 波特率: " << baud_rate 
-              << " 数据位: 8 停止位: 1 校验位: 无 流控制: 无" << std::endl;
+              << " 数据位: 8 停止位: 1 校验位: 无 流控制: 无 (读写模式)" << std::endl;
     return true;
 }
 
@@ -188,6 +188,31 @@ void SerialScreenProtocol::sendThreadFunc() {
         
         // 持续发送最大功率
         sendMaxPower();
+        
+        // 尝试接收串口屏按键事件
+        if (port) {
+            // 读取一个字节来判断是否有数据
+            uint8_t first_byte;
+            size_t bytes_read = sp_nonblocking_read(port, &first_byte, 1);
+            
+            if (bytes_read > 0 && first_byte == 0x65) {
+                // 检测到串口屏协议帧头，读取完整帧
+                std::vector<uint8_t> frame_data;
+                frame_data.push_back(first_byte);
+                
+                // 读取剩余6字节
+                uint8_t buffer[6];
+                bytes_read = sp_blocking_read(port, buffer, 6, 100);
+                
+                if (bytes_read == 6) {
+                    // 添加剩余数据到frame_data
+                    frame_data.insert(frame_data.end(), buffer, buffer + 6);
+                    
+                    // 解析数据帧
+                    parseFrame(frame_data);
+                }
+            }
+        }
         
         // 短暂延时，避免CPU占用过高
         std::this_thread::sleep_for(std::chrono::milliseconds(50));
