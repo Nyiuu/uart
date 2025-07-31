@@ -480,7 +480,8 @@ CMakeFiles/uart_program.dir/src/main.cpp.o: ../src/main.cpp \
   /usr/include/c++/11/bits/basic_ios.tcc \
   /usr/include/c++/11/bits/ostream.tcc \
   /usr/include/c++/11/istream \
-  /usr/include/c++/11/bits/istream.tcc
+  /usr/include/c++/11/bits/istream.tcc \
+  /usr/include/c++/11/atomic
 
 CMakeFiles/uart_program.dir/src/serial_screen_protocol.cpp.o: ../src/serial_screen_protocol.cpp \
   /usr/include/stdc-predef.h \
@@ -987,6 +988,8 @@ CMakeFiles/uart_program.dir/src/uart_reader.cpp.o: ../src/uart_reader.cpp \
 
 
 ../src/serial_screen_protocol.cpp:
+
+/usr/include/c++/11/atomic:
 
 /usr/include/c++/11/bits/std_mutex.h:
 

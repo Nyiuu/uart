@@ -141,6 +141,80 @@ void SerialScreenProtocol::notifyStartButtonPressed() {
     std::cout << "*** 收到start按键通知，将发送距离和边长数据 ***" << std::endl;
 }
 
+void SerialScreenProtocol::registerEventCallback(SerialScreenEvent event, std::function<void()> callback) {
+    std::lock_guard<std::mutex> lock(data_mutex);
+    eventCallbacks[event] = callback;
+    std::cout << "注册事件回调: " << static_cast<int>(event) << std::endl;
+}
+
+void SerialScreenProtocol::unregisterEventCallback(SerialScreenEvent event) {
+    std::lock_guard<std::mutex> lock(data_mutex);
+    auto it = eventCallbacks.find(event);
+    if (it != eventCallbacks.end()) {
+        eventCallbacks.erase(it);
+        std::cout << "注销事件回调: " << static_cast<int>(event) << std::endl;
+    }
+}
+
+void SerialScreenProtocol::clearAllEventCallbacks() {
+    std::lock_guard<std::mutex> lock(data_mutex);
+    eventCallbacks.clear();
+    std::cout << "清除所有事件回调" << std::endl;
+}
+
+void SerialScreenProtocol::triggerEventCallback(SerialScreenEvent event) {
+    std::lock_guard<std::mutex> lock(data_mutex);
+    auto it = eventCallbacks.find(event);
+    if (it != eventCallbacks.end() && it->second) {
+        std::cout << "触发事件回调: " << static_cast<int>(event) << std::endl;
+        it->second(); // 调用回调函数
+    }
+}
+
+SerialScreenEvent SerialScreenProtocol::parseEvent(uint8_t page, uint8_t control, uint8_t event) {
+    if (page == 0x01 && control == 0x02) {
+        return SerialScreenEvent::START_BUTTON;
+    } else if (page == 0x02) {
+        switch (control) {
+            case 0x02: return SerialScreenEvent::KEYBOARD_0;
+            case 0x05: return SerialScreenEvent::KEYBOARD_1;
+            case 0x06: return SerialScreenEvent::KEYBOARD_2;
+            case 0x07: return SerialScreenEvent::KEYBOARD_3;
+            case 0x08: return SerialScreenEvent::KEYBOARD_4;
+            case 0x09: return SerialScreenEvent::KEYBOARD_5;
+            case 0x0A: return SerialScreenEvent::KEYBOARD_6;
+            case 0x0B: return SerialScreenEvent::KEYBOARD_7;
+            case 0x0C: return SerialScreenEvent::KEYBOARD_8;
+            case 0x0E: return SerialScreenEvent::KEYBOARD_9;
+            case 0x0D: return SerialScreenEvent::DELETE_BUTTON;
+        }
+    } else if (page == 0x04) {
+        switch (control) {
+            case 0x02: return SerialScreenEvent::CAMERA_EXPOSURE_PLUS_1;
+            case 0x04: return SerialScreenEvent::CAMERA_EXPOSURE_PLUS_10;
+            case 0x05: return SerialScreenEvent::CAMERA_EXPOSURE_PLUS_100;
+            case 0x06: return SerialScreenEvent::CAMERA_EXPOSURE_PLUS_1000;
+            case 0x07: return SerialScreenEvent::CAMERA_EXPOSURE_MINUS_1;
+            case 0x08: return SerialScreenEvent::CAMERA_EXPOSURE_MINUS_10;
+            case 0x09: return SerialScreenEvent::CAMERA_EXPOSURE_MINUS_100;
+            case 0x0A: return SerialScreenEvent::CAMERA_EXPOSURE_MINUS_1000;
+        }
+    } else if (page == 0x05) {
+        switch (control) {
+            case 0x02: return SerialScreenEvent::CAMERA_THRESHOLD_PLUS_1;
+            case 0x04: return SerialScreenEvent::CAMERA_THRESHOLD_PLUS_10;
+            case 0x05: return SerialScreenEvent::CAMERA_THRESHOLD_PLUS_100;
+            case 0x06: return SerialScreenEvent::CAMERA_THRESHOLD_PLUS_1000;
+            case 0x07: return SerialScreenEvent::CAMERA_THRESHOLD_MINUS_1;
+            case 0x08: return SerialScreenEvent::CAMERA_THRESHOLD_MINUS_10;
+            case 0x09: return SerialScreenEvent::CAMERA_THRESHOLD_MINUS_100;
+            case 0x0A: return SerialScreenEvent::CAMERA_THRESHOLD_MINUS_1000;
+        }
+    }
+    
+    return SerialScreenEvent::UNKNOWN_EVENT;
+}
+
 void SerialScreenProtocol::start() {
     if (running) return;
     
@@ -267,60 +341,60 @@ bool SerialScreenProtocol::parseFrame(const std::vector<uint8_t>& frame_data) {
     std::cout << "事件: 0x" << std::hex << std::setfill('0') << std::setw(2) 
               << static_cast<int>(event) << std::dec << std::endl;
     
-    // 根据页面和控件识别具体功能
+    // 使用新的解析方法获取事件类型
+    SerialScreenEvent screenEvent = parseEvent(page, control, event);
+    
+    // 根据事件类型获取功能名称（用于显示）
     std::string function_name = "未知功能";
     bool is_start_button = false;
     
-    if (page == 0x01 && control == 0x02) {
-        function_name = "start按键";
-        is_start_button = true;
-    } else if (page == 0x02) {
-        switch (control) {
-            case 0x02: function_name = "键盘0"; break;
-            case 0x05: function_name = "键盘1"; break;
-            case 0x06: function_name = "键盘2"; break;
-            case 0x07: function_name = "键盘3"; break;
-            case 0x08: function_name = "键盘4"; break;
-            case 0x09: function_name = "键盘5"; break;
-            case 0x0A: function_name = "键盘6"; break;
-            case 0x0B: function_name = "键盘7"; break;
-            case 0x0C: function_name = "键盘8"; break;
-            case 0x0E: function_name = "键盘9"; break;
-            case 0x0D: function_name = "delete按键"; break;
-        }
-    } else if (page == 0x04) {
-        switch (control) {
-            case 0x02: function_name = "摄像头曝光+1"; break;
-            case 0x04: function_name = "摄像头曝光+10"; break;
-            case 0x05: function_name = "摄像头曝光+100"; break;
-            case 0x06: function_name = "摄像头曝光+1000"; break;
-            case 0x07: function_name = "摄像头曝光-1"; break;
-            case 0x08: function_name = "摄像头曝光-10"; break;
-            case 0x09: function_name = "摄像头曝光-100"; break;
-            case 0x0A: function_name = "摄像头曝光-1000"; break;
-        }
-    } else if (page == 0x05) {
-        switch (control) {
-            case 0x02: function_name = "相机阈值+1"; break;
-            case 0x04: function_name = "相机阈值+10"; break;
-            case 0x05: function_name = "相机阈值+100"; break;
-            case 0x06: function_name = "相机阈值+1000"; break;
-            case 0x07: function_name = "相机阈值-1"; break;
-            case 0x08: function_name = "相机阈值-10"; break;
-            case 0x09: function_name = "相机阈值-100"; break;
-            case 0x0A: function_name = "相机阈值-1000"; break;
-        }
+    switch (screenEvent) {
+        case SerialScreenEvent::START_BUTTON:
+            function_name = "start按键";
+            is_start_button = true;
+            break;
+        case SerialScreenEvent::KEYBOARD_0: function_name = "键盘0"; break;
+        case SerialScreenEvent::KEYBOARD_1: function_name = "键盘1"; break;
+        case SerialScreenEvent::KEYBOARD_2: function_name = "键盘2"; break;
+        case SerialScreenEvent::KEYBOARD_3: function_name = "键盘3"; break;
+        case SerialScreenEvent::KEYBOARD_4: function_name = "键盘4"; break;
+        case SerialScreenEvent::KEYBOARD_5: function_name = "键盘5"; break;
+        case SerialScreenEvent::KEYBOARD_6: function_name = "键盘6"; break;
+        case SerialScreenEvent::KEYBOARD_7: function_name = "键盘7"; break;
+        case SerialScreenEvent::KEYBOARD_8: function_name = "键盘8"; break;
+        case SerialScreenEvent::KEYBOARD_9: function_name = "键盘9"; break;
+        case SerialScreenEvent::DELETE_BUTTON: function_name = "delete按键"; break;
+        case SerialScreenEvent::CAMERA_EXPOSURE_PLUS_1: function_name = "摄像头曝光+1"; break;
+        case SerialScreenEvent::CAMERA_EXPOSURE_PLUS_10: function_name = "摄像头曝光+10"; break;
+        case SerialScreenEvent::CAMERA_EXPOSURE_PLUS_100: function_name = "摄像头曝光+100"; break;
+        case SerialScreenEvent::CAMERA_EXPOSURE_PLUS_1000: function_name = "摄像头曝光+1000"; break;
+        case SerialScreenEvent::CAMERA_EXPOSURE_MINUS_1: function_name = "摄像头曝光-1"; break;
+        case SerialScreenEvent::CAMERA_EXPOSURE_MINUS_10: function_name = "摄像头曝光-10"; break;
+        case SerialScreenEvent::CAMERA_EXPOSURE_MINUS_100: function_name = "摄像头曝光-100"; break;
+        case SerialScreenEvent::CAMERA_EXPOSURE_MINUS_1000: function_name = "摄像头曝光-1000"; break;
+        case SerialScreenEvent::CAMERA_THRESHOLD_PLUS_1: function_name = "相机阈值+1"; break;
+        case SerialScreenEvent::CAMERA_THRESHOLD_PLUS_10: function_name = "相机阈值+10"; break;
+        case SerialScreenEvent::CAMERA_THRESHOLD_PLUS_100: function_name = "相机阈值+100"; break;
+        case SerialScreenEvent::CAMERA_THRESHOLD_PLUS_1000: function_name = "相机阈值+1000"; break;
+        case SerialScreenEvent::CAMERA_THRESHOLD_MINUS_1: function_name = "相机阈值-1"; break;
+        case SerialScreenEvent::CAMERA_THRESHOLD_MINUS_10: function_name = "相机阈值-10"; break;
+        case SerialScreenEvent::CAMERA_THRESHOLD_MINUS_100: function_name = "相机阈值-100"; break;
+        case SerialScreenEvent::CAMERA_THRESHOLD_MINUS_1000: function_name = "相机阈值-1000"; break;
+        case SerialScreenEvent::UNKNOWN_EVENT: function_name = "未知功能"; break;
     }
     
     std::cout << "功能: " << function_name << std::endl;
     
-    // 如果是start按键，设置标志并调用回调
+    // 触发通用事件回调
+    triggerEventCallback(screenEvent);
+    
+    // 如果是start按键，设置标志并调用旧的回调（保持向后兼容）
     if (is_start_button) {
         std::lock_guard<std::mutex> lock(data_mutex);
         start_received = true;
         std::cout << "*** 检测到start按键，将发送距离和边长数据 ***" << std::endl;
         
-        // 调用回调函数通知其他实例
+        // 调用旧的回调函数通知其他实例（保持向后兼容）
         if (startButtonCallback) {
             startButtonCallback();
         }

@@ -64,6 +64,47 @@ int main() {
     // 创建串口屏协议（支持读写）
     auto screenProtocol = std::make_shared<SerialScreenProtocol>(serial_screen_port, baud_rate);
     
+    // 注册串口屏事件回调函数
+    screenProtocol->registerEventCallback(SerialScreenEvent::START_BUTTON, []() {
+        std::cout << "*** 处理start按键事件 ***" << std::endl;
+        // 这里可以添加start按键的具体处理逻辑
+    });
+    
+    screenProtocol->registerEventCallback(SerialScreenEvent::KEYBOARD_0, []() {
+        std::cout << "*** 处理键盘0事件 ***" << std::endl;
+        // 这里可以添加键盘0的具体处理逻辑
+    });
+    
+    screenProtocol->registerEventCallback(SerialScreenEvent::KEYBOARD_1, []() {
+        std::cout << "*** 处理键盘1事件 ***" << std::endl;
+        // 这里可以添加键盘1的具体处理逻辑
+    });
+    
+    screenProtocol->registerEventCallback(SerialScreenEvent::DELETE_BUTTON, []() {
+        std::cout << "*** 处理delete按键事件 ***" << std::endl;
+        // 这里可以添加delete按键的具体处理逻辑
+    });
+    
+    screenProtocol->registerEventCallback(SerialScreenEvent::CAMERA_EXPOSURE_PLUS_1, []() {
+        std::cout << "*** 处理摄像头曝光+1事件 ***" << std::endl;
+        // 这里可以添加摄像头曝光+1的具体处理逻辑
+    });
+    
+    screenProtocol->registerEventCallback(SerialScreenEvent::CAMERA_EXPOSURE_MINUS_1, []() {
+        std::cout << "*** 处理摄像头曝光-1事件 ***" << std::endl;
+        // 这里可以添加摄像头曝光-1的具体处理逻辑
+    });
+    
+    screenProtocol->registerEventCallback(SerialScreenEvent::CAMERA_THRESHOLD_PLUS_1, []() {
+        std::cout << "*** 处理相机阈值+1事件 ***" << std::endl;
+        // 这里可以添加相机阈值+1的具体处理逻辑
+    });
+    
+    screenProtocol->registerEventCallback(SerialScreenEvent::CAMERA_THRESHOLD_MINUS_1, []() {
+        std::cout << "*** 处理相机阈值-1事件 ***" << std::endl;
+        // 这里可以添加相机阈值-1的具体处理逻辑
+    });
+    
     // 创建电流功率协议
     auto currentPowerProtocol = std::make_unique<CurrentPowerProtocol>();
 
