@@ -1,0 +1,1 @@
+/usr/bin/c++ -O3 -DNDEBUG CMakeFiles/uart_program.dir/src/main.cpp.o CMakeFiles/uart_program.dir/src/uart_reader.cpp.o CMakeFiles/uart_program.dir/src/current_power_protocol.cpp.o CMakeFiles/uart_program.dir/src/serial_screen_protocol.cpp.o -o uart_program  -lserialport 

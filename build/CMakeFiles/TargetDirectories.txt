@@ -1,0 +1,3 @@
+/home/orangepi/workplace/uart/build/CMakeFiles/uart_program.dir
+/home/orangepi/workplace/uart/build/CMakeFiles/edit_cache.dir
+/home/orangepi/workplace/uart/build/CMakeFiles/rebuild_cache.dir

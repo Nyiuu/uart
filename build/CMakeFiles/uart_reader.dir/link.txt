@@ -1,0 +1,1 @@
+/usr/bin/c++ CMakeFiles/uart_reader.dir/src/main.cpp.o CMakeFiles/uart_reader.dir/src/uart_reader.cpp.o CMakeFiles/uart_reader.dir/src/current_power_protocol.cpp.o CMakeFiles/uart_reader.dir/src/serial_screen_protocol.cpp.o -o uart_reader  -lserialport 
