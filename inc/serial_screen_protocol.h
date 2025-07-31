@@ -9,6 +9,7 @@
 #include <vector>
 #include <functional>
 #include <unordered_map>
+#include <condition_variable>
 
 // 串口屏按键事件枚举
 enum class SerialScreenEvent {
@@ -49,7 +50,6 @@ private:
     std::string port_name;
     int baud_rate;
     struct sp_port* port;
-    std::thread send_thread;
     std::mutex data_mutex;
     
     // 数据变量
@@ -71,6 +71,17 @@ private:
     
     // 通用事件回调注册表
     std::unordered_map<SerialScreenEvent, std::function<void()>> eventCallbacks;
+    
+    // 条件变量，用于异步通知
+    std::condition_variable data_cv;
+    
+    // 分离的线程控制
+    std::thread receive_thread;
+    std::thread send_thread;
+    bool receiving_running;
+    bool sending_running;
+    std::mutex receive_mutex;
+    std::mutex send_mutex;
 
 public:
     SerialScreenProtocol(const std::string& port_name, int baud_rate = 9600);
@@ -92,6 +103,9 @@ public:
     void updateCurrentPower(float current, float power);
     void updateMaxPower(float max_power);
     
+    // 立即发送接口
+    void sendDistanceAndSideLengthImmediately();
+    
     // 回调设置接口
     void setStartButtonCallback(std::function<void()> callback);
     void notifyStartButtonPressed();
@@ -105,8 +119,15 @@ public:
     void start();
     void stop();
     
+    // 分离的接收和发送控制
+    void startReceiving();
+    void stopReceiving();
+    void startSending();
+    void stopSending();
+    
 private:
     void sendThreadFunc();
+    void receiveThreadFunc();
     void sendAllData();
     void sendDistanceAndSideLength();
     void sendCurrentAndPower();

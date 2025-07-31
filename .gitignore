@@ -1,0 +1,98 @@
+# C++ 编译产物
+*.o
+*.obj
+*.exe
+*.out
+*.app
+*.so
+*.dylib
+*.dll
+*.a
+*.lib
+
+# CMake 构建目录
+build/
+cmake-build-*/
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+*.cmake
+
+# IDE 和编辑器文件
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# 日志文件
+*.log
+logs/
+
+# 临时文件
+*.tmp
+*.temp
+*.bak
+*.backup
+
+# 串口相关文件（如果有的话）
+*.serial
+*.uart
+
+# 依赖库文件
+lib/
+libs/
+external/
+third_party/
+
+# 测试文件
+test/
+tests/
+*.test
+
+# 文档生成
+docs/
+doc/
+
+# 打包文件
+*.tar.gz
+*.zip
+*.rar
+
+# 系统文件
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# 用户特定文件
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# 调试文件
+*.pdb
+*.ilk
+*.exp
+*.idb
+*.opendb
+
+# 覆盖率文件
+*.gcov
+*.gcda
+*.gcno
+coverage/
+
+# 内存检查文件
+valgrind-out.txt
+*.vgcore
+
+# 项目特定文件
+# 如果有特定的临时文件或输出文件，可以在这里添加 

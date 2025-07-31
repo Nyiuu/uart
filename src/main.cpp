@@ -36,14 +36,25 @@ void currentPowerReceiveThread(UartReader& reader, std::shared_ptr<SerialScreenP
     }
 }
 
-// 串口屏读写线程函数（同时处理接收和发送）
-void serialScreenThread(std::shared_ptr<SerialScreenProtocol> screenProtocol) {
-    std::cout << "串口屏读写线程已启动" << std::endl;
+// 串口屏接收线程函数（专门处理按键事件）
+void serialScreenReceiveThread(std::shared_ptr<SerialScreenProtocol> screenProtocol) {
+    std::cout << "串口屏接收线程已启动" << std::endl;
+    
+    // 串口屏接收线程会一直运行，直到程序退出
+    while (true) {
+        // 短暂休息，避免CPU占用过高
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+}
+
+// 串口屏发送线程函数（专门处理数据发送）
+void serialScreenSendThread(std::shared_ptr<SerialScreenProtocol> screenProtocol) {
+    std::cout << "串口屏发送线程已启动" << std::endl;
     
     // 启动串口屏发送
     screenProtocol->start();
     
-    // 串口屏线程会一直运行，直到程序退出
+    // 发送线程会一直运行，直到程序退出
     while (true) {
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
@@ -133,17 +144,23 @@ int main() {
         std::cout << "串口屏串口已打开（读写模式）" << std::endl;
     }
 
-    std::cout << "启动两个独立线程..." << std::endl;
+    std::cout << "启动三个独立线程..." << std::endl;
     
-    // 启动两个独立线程
+    // 启动三个独立线程
     std::thread currentPowerThread(currentPowerReceiveThread, std::ref(currentPowerReader), screenProtocol);
-    std::thread serialScreenThreadObj(serialScreenThread, screenProtocol);
+    
+    // 启动串口屏的接收和发送线程
+    screenProtocol->startReceiving();
+    screenProtocol->startSending();
     
     std::cout << "所有线程已启动，主线程等待..." << std::endl;
     
     // 主线程等待所有子线程
     currentPowerThread.join();
-    serialScreenThreadObj.join();
+    
+    // 停止串口屏线程
+    screenProtocol->stopReceiving();
+    screenProtocol->stopSending();
 
     return 0;
 } 
