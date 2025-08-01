@@ -2,7 +2,6 @@
 #include "current_power_protocol.h"
 #include "serial_screen_protocol.h"
 #include <iostream>
-#include <thread>
 #include <chrono>
 #include <atomic>
 
@@ -21,47 +20,37 @@ void listAvailablePorts() {
     sp_free_port_list(ports);
 }
 
-// 电流功率接收线程函数
-void currentPowerReceiveThread(UartReader& reader, std::shared_ptr<SerialScreenProtocol> screenProtocol) {
-    std::cout << "电流功率接收线程已启动" << std::endl;
+// 单线程主循环函数
+void mainLoop(UartReader& currentPowerReader, std::shared_ptr<SerialScreenProtocol> screenProtocol) {
+    std::cout << "单线程主循环已启动" << std::endl;
+    
+    auto lastSendTime = std::chrono::steady_clock::now();
+    const auto sendInterval = std::chrono::milliseconds(50); // 50ms发送间隔
     
     while (true) {
-        // 接收电流功率数据
-        if (reader.readAndParseFrame()) {
+        auto currentTime = std::chrono::steady_clock::now();
+        
+        // 任务1: 接收电流功率数据
+        if (currentPowerReader.readAndParseFrame()) {
             // 数据接收成功，继续处理
         }
         
-        // 短暂休息，避免CPU占用过高
-        std::this_thread::sleep_for(std::chrono::milliseconds(10));
-    }
-}
-
-// 串口屏接收线程函数（专门处理按键事件）
-void serialScreenReceiveThread(std::shared_ptr<SerialScreenProtocol> screenProtocol) {
-    std::cout << "串口屏接收线程已启动" << std::endl;
-    
-    // 串口屏接收线程会一直运行，直到程序退出
-    while (true) {
+        // 任务2: 接收串口屏按键事件（非阻塞）
+        screenProtocol->checkForSerialScreenData();
+        
+        // 任务3: 定期发送数据到串口屏
+        if (currentTime - lastSendTime >= sendInterval) {
+            screenProtocol->sendPeriodicData();
+            lastSendTime = currentTime;
+        }
+        
         // 短暂休息，避免CPU占用过高
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
 }
 
-// 串口屏发送线程函数（专门处理数据发送）
-void serialScreenSendThread(std::shared_ptr<SerialScreenProtocol> screenProtocol) {
-    std::cout << "串口屏发送线程已启动" << std::endl;
-    
-    // 启动串口屏发送
-    screenProtocol->start();
-    
-    // 发送线程会一直运行，直到程序退出
-    while (true) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
-    }
-}
-
 int main() {
-    std::cout << "=== 串口通讯程序（双线程架构）===" << std::endl;
+    std::cout << "=== 串口通讯程序（单线程事件驱动）===" << std::endl;
     listAvailablePorts();
 
     std::string current_power_port = "/dev/ttyUSB0";  // 电流功率数据串口
@@ -144,23 +133,10 @@ int main() {
         std::cout << "串口屏串口已打开（读写模式）" << std::endl;
     }
 
-    std::cout << "启动三个独立线程..." << std::endl;
+    std::cout << "启动单线程主循环..." << std::endl;
     
-    // 启动三个独立线程
-    std::thread currentPowerThread(currentPowerReceiveThread, std::ref(currentPowerReader), screenProtocol);
-    
-    // 启动串口屏的接收和发送线程
-    screenProtocol->startReceiving();
-    screenProtocol->startSending();
-    
-    std::cout << "所有线程已启动，主线程等待..." << std::endl;
-    
-    // 主线程等待所有子线程
-    currentPowerThread.join();
-    
-    // 停止串口屏线程
-    screenProtocol->stopReceiving();
-    screenProtocol->stopSending();
+    // 启动单线程主循环
+    mainLoop(currentPowerReader, screenProtocol);
 
     return 0;
 } 

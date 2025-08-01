@@ -180,8 +180,7 @@ CMakeFiles/uart_program.dir/src/uart_reader.cpp.o: \
  /usr/include/c++/11/mutex /usr/include/c++/11/system_error \
  /usr/include/aarch64-linux-gnu/c++/11/bits/error_constants.h \
  /usr/include/c++/11/stdexcept /usr/include/c++/11/bits/std_mutex.h \
- /usr/include/c++/11/bits/unique_lock.h \
- /usr/include/c++/11/condition_variable /usr/include/c++/11/iostream \
+ /usr/include/c++/11/bits/unique_lock.h /usr/include/c++/11/iostream \
  /usr/include/c++/11/ostream /usr/include/c++/11/ios \
  /usr/include/c++/11/bits/ios_base.h \
  /usr/include/c++/11/bits/locale_classes.h \

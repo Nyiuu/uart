@@ -460,7 +460,6 @@ CMakeFiles/uart_program.dir/src/main.cpp.o: ../src/main.cpp \
   /usr/include/c++/11/stdexcept \
   /usr/include/c++/11/bits/std_mutex.h \
   /usr/include/c++/11/bits/unique_lock.h \
-  /usr/include/c++/11/condition_variable \
   /usr/include/c++/11/iostream \
   /usr/include/c++/11/ostream \
   /usr/include/c++/11/ios \
@@ -691,11 +690,6 @@ CMakeFiles/uart_program.dir/src/serial_screen_protocol.cpp.o: ../src/serial_scre
   /usr/include/c++/11/bits/stl_heap.h \
   /usr/include/c++/11/bits/stl_tempbuf.h \
   /usr/include/c++/11/bits/uniform_int_dist.h \
-  /usr/include/c++/11/condition_variable \
-  /usr/include/c++/11/bits/shared_ptr.h \
-  /usr/include/c++/11/bits/shared_ptr_base.h \
-  /usr/include/c++/11/bits/allocated_ptr.h \
-  /usr/include/c++/11/ext/concurrence.h \
   /usr/include/c++/11/iostream \
   /usr/include/c++/11/ostream \
   /usr/include/c++/11/ios \
@@ -991,7 +985,6 @@ CMakeFiles/uart_program.dir/src/uart_reader.cpp.o: ../src/uart_reader.cpp \
   /usr/include/c++/11/stdexcept \
   /usr/include/c++/11/bits/std_mutex.h \
   /usr/include/c++/11/bits/unique_lock.h \
-  /usr/include/c++/11/condition_variable \
   /usr/include/c++/11/iostream \
   /usr/include/c++/11/ostream \
   /usr/include/c++/11/ios \
@@ -1446,8 +1439,6 @@ CMakeFiles/uart_program.dir/src/uart_reader.cpp.o: ../src/uart_reader.cpp \
 /usr/include/aarch64-linux-gnu/bits/stdlib-bsearch.h:
 
 /usr/include/stdio.h:
-
-/usr/include/c++/11/condition_variable:
 
 /usr/include/c++/11/ratio:
 

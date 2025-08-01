@@ -12,8 +12,7 @@
 SerialScreenProtocol::SerialScreenProtocol(const std::string& port_name, int baud_rate) 
     : port_name(port_name), baud_rate(baud_rate), port(nullptr), 
       distance_D(0.0f), side_length_x(0.0f), current_I(0.0f), power_P(0.0f), max_power(0.0f),
-      start_received(false), data_updated(false), running(false),
-      receiving_running(false), sending_running(false) {
+      start_received(false), data_updated(false) {
     
     // 生成100以内的随机值用于调试
     std::random_device rd;
@@ -28,8 +27,6 @@ SerialScreenProtocol::SerialScreenProtocol(const std::string& port_name, int bau
 }
 
 SerialScreenProtocol::~SerialScreenProtocol() {
-    stopReceiving();
-    stopSending();
     close();
 }
 
@@ -141,14 +138,12 @@ void SerialScreenProtocol::updateCurrentPower(float current, float power) {
     }
     
     data_updated = true;
-    data_cv.notify_one(); // 通知发送线程有数据更新
 }
 
 void SerialScreenProtocol::updateMaxPower(float max_power) {
     std::lock_guard<std::mutex> lock(data_mutex);
     this->max_power = max_power;
     data_updated = true;
-    data_cv.notify_one(); // 通知发送线程有数据更新
 }
 
 void SerialScreenProtocol::sendDistanceAndSideLengthImmediately() {
@@ -159,6 +154,50 @@ void SerialScreenProtocol::sendDistanceAndSideLengthImmediately() {
     std::cout << "*** 立即发送距离和边长数据完成 ***" << std::endl;
 }
 
+void SerialScreenProtocol::checkForSerialScreenData() {
+    // 非阻塞检查串口屏数据
+    if (port) {
+        // 读取一个字节来判断是否有数据
+        uint8_t first_byte;
+        size_t bytes_read = sp_nonblocking_read(port, &first_byte, 1);
+        
+        if (bytes_read > 0 && first_byte == 0x65) {
+            // 检测到串口屏协议帧头，读取完整帧
+            std::vector<uint8_t> frame_data;
+            frame_data.push_back(first_byte);
+            
+            // 读取剩余6字节
+            uint8_t buffer[6];
+            bytes_read = sp_blocking_read(port, buffer, 6, 10); // 短超时
+            
+            if (bytes_read == 6) {
+                // 添加剩余数据到frame_data
+                frame_data.insert(frame_data.end(), buffer, buffer + 6);
+                
+                // 解析数据帧
+                parseFrame(frame_data);
+            }
+        }
+    }
+}
+
+void SerialScreenProtocol::sendPeriodicData() {
+    // 定期发送数据到串口屏
+    std::lock_guard<std::mutex> lock(data_mutex);
+    
+    // 发送电流和功率数据
+    sendCurrentAndPower();
+    
+    // 发送最大功率
+    sendMaxPower();
+    
+    // 如果收到start按键，发送距离和边长
+    if (start_received) {
+        sendDistanceAndSideLength();
+        start_received = false;
+    }
+}
+
 void SerialScreenProtocol::setStartButtonCallback(std::function<void()> callback) {
     startButtonCallback = callback;
 }
@@ -167,7 +206,6 @@ void SerialScreenProtocol::notifyStartButtonPressed() {
     std::lock_guard<std::mutex> lock(data_mutex);
     start_received = true;
     std::cout << "*** 收到start按键通知，将发送距离和边长数据 ***" << std::endl;
-    data_cv.notify_one(); // 通知发送线程有start按键事件
 }
 
 void SerialScreenProtocol::registerEventCallback(SerialScreenEvent event, std::function<void()> callback) {
@@ -242,134 +280,6 @@ SerialScreenEvent SerialScreenProtocol::parseEvent(uint8_t page, uint8_t control
     }
     
     return SerialScreenEvent::UNKNOWN_EVENT;
-}
-
-void SerialScreenProtocol::start() {
-    if (running) return;
-    
-    running = true;
-    send_thread = std::thread(&SerialScreenProtocol::sendThreadFunc, this);
-    std::cout << "串口屏发送线程已启动" << std::endl;
-}
-
-void SerialScreenProtocol::stop() {
-    if (!running) return;
-    
-    running = false;
-    data_cv.notify_all(); // 通知所有等待的线程停止
-    if (send_thread.joinable()) {
-        send_thread.join();
-    }
-    std::cout << "串口屏发送线程已停止" << std::endl;
-}
-
-void SerialScreenProtocol::startReceiving() {
-    if (receiving_running) return;
-    
-    receiving_running = true;
-    receive_thread = std::thread(&SerialScreenProtocol::receiveThreadFunc, this);
-    std::cout << "串口屏接收线程已启动" << std::endl;
-}
-
-void SerialScreenProtocol::stopReceiving() {
-    if (!receiving_running) return;
-    
-    receiving_running = false;
-    if (receive_thread.joinable()) {
-        receive_thread.join();
-    }
-    std::cout << "串口屏接收线程已停止" << std::endl;
-}
-
-void SerialScreenProtocol::startSending() {
-    if (sending_running) return;
-    
-    sending_running = true;
-    send_thread = std::thread(&SerialScreenProtocol::sendThreadFunc, this);
-    std::cout << "串口屏发送线程已启动" << std::endl;
-}
-
-void SerialScreenProtocol::stopSending() {
-    if (!sending_running) return;
-    
-    sending_running = false;
-    data_cv.notify_all(); // 通知发送线程停止
-    if (send_thread.joinable()) {
-        send_thread.join();
-    }
-    std::cout << "串口屏发送线程已停止" << std::endl;
-}
-
-void SerialScreenProtocol::sendThreadFunc() {
-    while (sending_running) {
-        bool should_send_current_power = false;
-        bool should_send_distance_side = false;
-        
-        {
-            std::unique_lock<std::mutex> lock(data_mutex);
-            
-            // 等待条件变量通知，或者超时
-            data_cv.wait_for(lock, std::chrono::milliseconds(100), [this] {
-                return data_updated || start_received || !sending_running;
-            });
-            
-            if (!sending_running) break;
-            
-            if (data_updated) {
-                should_send_current_power = true;
-                data_updated = false;
-            }
-            if (start_received) {
-                should_send_distance_side = true;
-                start_received = false;
-            }
-        }
-        
-        // 发送电流和功率（只要收到就发送）
-        if (should_send_current_power) {
-            sendCurrentAndPower();
-        }
-        
-        // 发送距离和边长（只有收到start才发送）
-        if (should_send_distance_side) {
-            sendDistanceAndSideLength();
-        }
-        
-        // 持续发送最大功率
-        sendMaxPower();
-    }
-}
-
-void SerialScreenProtocol::receiveThreadFunc() {
-    while (receiving_running) {
-        // 尝试接收串口屏按键事件
-        if (port) {
-            // 读取一个字节来判断是否有数据
-            uint8_t first_byte;
-            size_t bytes_read = sp_nonblocking_read(port, &first_byte, 1);
-            
-            if (bytes_read > 0 && first_byte == 0x65) {
-                // 检测到串口屏协议帧头，读取完整帧
-                std::vector<uint8_t> frame_data;
-                frame_data.push_back(first_byte);
-                
-                // 读取剩余6字节
-                uint8_t buffer[6];
-                bytes_read = sp_blocking_read(port, buffer, 6, 100);
-                
-                if (bytes_read == 6) {
-                    // 添加剩余数据到frame_data
-                    frame_data.insert(frame_data.end(), buffer, buffer + 6);
-                    
-                    // 解析数据帧
-                    parseFrame(frame_data);
-                }
-            }
-        }
-        
-        // 短暂休息，避免CPU占用过高
-        std::this_thread::sleep_for(std::chrono::milliseconds(1));
-    }
 }
 
 void SerialScreenProtocol::sendDistanceAndSideLength() {
